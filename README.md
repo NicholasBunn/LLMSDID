@@ -1,0 +1,6 @@
+# LLMSDID
+This project contains a preliminary error logger for the Sound &amp; Vibration Research Group's measurement engineers to use while working onboard the S.A. Agulhas II. It enables greater knowledge transfer and faster fault finding when dealing with the expansive system on board
+
+It uses a MySQL database to store all the information regarding the error. An 'errors' table is used to store information specific to the errors, and a 'downtime' table is used to store information about any downtime on the measurement system, which can be related to errors logged in the 'errors' table. This project makes use of PySimpleGUI to build a basic frontend, which is packaged into an executeable and run on the on board measurement laptop during voyages.
+
+This project was thrown together at the SANAE IV base, making use of packages I could scrounge from others who were staying there (hence, PySimpleGUI) as the internet didn't allow me to research or download anything else. Please feel free to provide any tips or critisism, I'm new to creating frontends and had to fumble around learning databases and PySimpleGUI with next to no internet, so I'm sure there's lots of room for improvement here!
