@@ -366,12 +366,53 @@ mainWindow = sg.Window("LLMSDID - Home",
 					   default_button_element_size=(12, 1))
 
 # TODO implement __main__ here
+'''
+1) Ask user for database login details and cache them
+
+2) Create blank dicts for unresolved errors and current error
+	- Open DB connection
+	- Fill unresolved dict
+	- Close DB Connection
+
+
+while True:
+    event, values = main_window.read()
+	
+	if ERROR LIST SELECT EVENT
+		load error info from dict
+
+	if UPDATE ERROR EVENT
+		log into DB and update current error dict
+		close DB connection
+		invoke update for unresolved error dict
+
+	if LOG ERROR EVENT
+		log into DB and log error
+		close DB connection
+		invoke update for unresolved error dict
+
+	if SEARCH ERROR EVENT
+		search for error
+
+	if SHOW ME MORE EVENT
+		load error info from dict
+
+	if LOG DOWNTIME EVENT
+		log into DB and get downtime info
+		close DB connection
+
+	if CLOSE EVENT
+		close application
+
+'''
+
 # Login to database before entering into GUI
 CreateLoginWindow()
 
 # Create an event loop
 while True:
 	event, values = mainWindow.read()
+	
 	updateQuery = "SELECT FaultID, FaultDescription FROM errors WHERE FaultStatus = 'Unresolved'"
 	unresolvedErrors = FetchFromErrors(updateQuery)
 	mainWindow['-ERROR LIST-'].update(unresolvedErrors)
