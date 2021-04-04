@@ -1,6 +1,7 @@
 # Packages
 import PySimpleGUI as sg
 import mysql.connector
+import secrets
 # MEEP - run python script on startup
 # MEEP Startup mysql server on script initialisation
 # TODO Close Mysql server and python script on window close
@@ -20,7 +21,7 @@ sg.LOOK_AND_FEEL_TABLE['DarkOcean'] = {'BACKGROUND': '#000000',
                                         'PROGRESS': ('pink', 'purple'),
                                         'BORDER': 1, 'SLIDER_DEPTH': 0, 'PROGRESS_DEPTH': 0,
                                         }
-sg.LOOK_AND_FEEL_TABLE['SVRG'] = {'BACKGROUND': '#FFFFFF',
+sg.LOOK_AND_FEEL_TABLE['SVRG'] = {'BACKGROUND': '#FFFFFF', # Grey
                                         'TEXT': '#000000',
                                         'INPUT': 'cyan',
                                         'TEXT_INPUT': '#000000',
@@ -71,7 +72,7 @@ def CreateLoginWindow():
 			break
 
 		if loginEvent == '-LOGIN GUEST-':
-			LoginToDB("localhost", "Guest", "Gu3st")
+			LoginToDB("localhost", secrets.guestUsername, secrets.guestPassword)
 			global guestUserFlag
 			guestUserFlag = True
 			loginWindow.close()
@@ -268,14 +269,14 @@ def CreateDowntimeWindow():
 	SaveToDowntime(voyage, stopTime, startTime, reason, assosciatedError, downtimeID)
 
 def LoginToDB(host, user, password):
-	print("Login test: " + host, user, password)
-
+    	
 	global connection
 	connection = mysql.connector.connect(
 		host=host,
 		user=user,
 		passwd=password,
-		database="llmsdid"
+		database="LLMSDID",
+		auth_plugin='mysql_native_password'
 	)
 
 	print(connection)
@@ -368,6 +369,7 @@ mainWindow = sg.Window("LLMSDID - Home",
 # TODO implement __main__ here
 '''
 1) Ask user for database login details and cache them
+	- Use 'keyring' to securely store the password
 
 2) Create blank dicts for unresolved errors and current error
 	- Open DB connection
@@ -443,7 +445,7 @@ while True:
 			# TODO Set current issue as logged issue if it is unresolved
 
 	if event == '-SEARCH ERROR-':
-		# TODO Implement error search
+		# TODO Implement error search": CONSIDER USING DEFAULT VALUES FOR NON-ENTERED SEARCH TERMS
 		print("TP3")
 
 	if event == '-SHOW ME MORE-':
