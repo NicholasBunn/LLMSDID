@@ -3,10 +3,10 @@ import PySimpleGUI as sg
 import mysql.connector
 import secrets
 
-errorSelFlag = False
-guest_user_flag = False
+error_sel_flag = False	# Flag to check whether an error has been selected before performing logic requiring it
+guest_user_flag = False	# Flag to check whether the user is a guest, and limit which functions of the applciation (and database) they can use
 unresolved_errors = [] # MEEP, could probably do without this in the refactor
-current_error = {
+current_error = {	# Dictionary to hold all information about the current/selected error. This removes the need to hit the database for every bit of logic that requires an error
 	'fault_id': 'Null',
 	'fault_status': 'Null',
 	'fault_description': 'Null',
@@ -19,11 +19,14 @@ current_error = {
 	'sensor_type': 'Null',
 	'fault_message': 'Null',
 	'log_date': 'Null'
-}
+}	
 
-class MyDB():
+class DatabaseConnection():
+	''' This class instantiates and maintains the database connection, and encapsulates all functions that work directly with that connection.'''
 	
 	def __init__(self, host, user, password, database):
+		''' This function is called whenever a new instance of 'DatabaseConnection' is instantiated. It created the connection and cursor to the 
+		database, both of which are used by other functions of this class.'''
 		try:
 			self.connection = mysql.connector.connect(
 				host=host,
@@ -34,10 +37,13 @@ class MyDB():
 			)
 			self.cursor = self.connection.cursor()
 		except mysql.connector.Error as e:
-			print("Error %d: %s", (e.args[0], e.args[1]))
-			# sys.exit(69)
+			print("Error %d: %s" % (e.args[0], e.args[1]))
+			exit(69)
 
 	def save_to_errors(self, fault_status, fault_desciption, voyage, time_of_fault, time_of_solution, fault_type, location, sensor_id, sensor_type, fault_message):
+		''' This function creates and carries out an 'INSERT' query for the 'errors' table. It forces null values for the time fields in the case that the GUI 
+		returns blank values, this is to avoid a type mismatch with the database (This could probably be better handled somewhere else but it gets the job done for now).'''
+		
 		if time_of_fault == '':
 			time_of_fault = "NULL"
 
@@ -55,14 +61,13 @@ class MyDB():
 		self.connection.commit()
 
 	def save_to_downtime(self, voyage, stop_time, start_time, reason, assosciated_error, downtime_id):
-		insert_query = "INSERT INTO errors (Voyage, StopTime, StartTime, Reason, AssosciatedError, downtimeID) VALUES ('{}', '{}', '{}', '{}', '{}', '{}')".format(voyage, stop_time, start_time, reason, assosciated_error, downtime_id)
-		print(insert_query)
-
-		self.cursor.execute(insert_query)
-
-		self.connection.commit()
+    	''' This function creates and carries out an 'INSERT' query for the 'downtime' table. It forces null values for the time fields in the case that the GUI 
+		returns blank values, this is to avoid a type mismatch with the database (Again, this is not perfect but I'll relook it at a later stage).'''
+		
+		pass
 
 	def fetch(self, fetch_query):
+    	''' This function carries out a 'SELECT' query from the MySQL database and returns the result.'''
 		print("Fetch " + str(fetch_query))
 
 		_ = self.cursor.execute(fetch_query)
@@ -92,9 +97,14 @@ class MyDB():
 	
 # Create window functions
 def create_login_window():
-	# Setup
+	''' This function contains the layout for, invokes, and monitors the login window. When a user logs in, it creates an instance of 
+	the 'DatabaseConnection' class, establishing a connection to the database for use by the main application. This function returns the 
+	created instance of 'DatabaseConnection' for use by other functions in the script.
+	'''
+
+	# Window setup
 	login_layout = [[sg.Text('Hostname: '), sg.In(size = (25, 0), key = '-HOST-')],
-				   [sg.Text('Username: '), sg.In(size = (25, 0), key = '-USER-')],
+					[sg.Text('Username: '), sg.In(size = (25, 0), key = '-USER-')],
 				   [sg.Text('Password: '), sg.In(size = (25, 0), pad = (3, 0), password_char = '*', key='-PASS-')],
 				   [sg.Button('Login', size = (14, 0),  pad = ((0, 10), (5, 0)), enable_events = True, bind_return_key = True, key = '-LOGIN-'), sg.Button('Guest Login.', size = (14, 0), pad = ((10, 0), (5, 0)), enable_events = True, key = '-LOGIN GUEST-')]
 				   ]
@@ -110,14 +120,13 @@ def create_login_window():
 	while True:
 		login_event, login_values = login_window.read()
 
-		# TODO add in and AND for enter keystroke event
 		if login_event == '-LOGIN-':
-			current_db = MyDB(login_values['-HOST-'], login_values['-USER-'], login_values['-PASS-'], "LLMSDID")
+			current_db = DatabaseConnection(login_values['-HOST-'], login_values['-USER-'], login_values['-PASS-'], "LLMSDID")	# Instantiate instance of 'DatabaseConnection'
 			login_window.close()
 			return current_db
 
 		if login_event == '-LOGIN GUEST-':
-			current_db = MyDB('localhost', secrets.guestUsername, secrets.guestPassword, "LLMSDID")
+			current_db = DatabaseConnection('localhost', secrets.guestUsername, secrets.guestPassword, "LLMSDID")	# Instantiate instance of 'DatabaseConnection'
 			global guest_user_flag
 			guest_user_flag = True
 			login_window.close()
@@ -297,7 +306,7 @@ def create_downtime_window(database):
 
 		if log_event == '-LOG SAVE-':
 			database.save_to_downtime(log_values['-VOYAGE-'], log_values['-START-'], log_values['-END-'], log_values['-REASON-'],
-						 log_values['-ASSOSCIATED ERROR-'], log_values['-DOWNTIME ID)
+						 log_values['-ASSOSCIATED ERROR-'], log_values['-DOWNTIME ID-'])
 			log_window.close()
 			break
 
@@ -340,7 +349,6 @@ main_window = sg.Window("LLMSDID - Home",
 
 if __name__ == "__main__":
 
-	# Login to database before entering into GUI
 	db_object = create_login_window()
 
 	while True:
