@@ -60,14 +60,16 @@ class DatabaseConnection():
 
 		self.connection.commit()
 
-	def save_to_downtime(self, voyage, stop_time, start_time, reason, assosciated_error, downtime_id):
-    	''' This function creates and carries out an 'INSERT' query for the 'downtime' table. It forces null values for the time fields in the case that the GUI 
+	def save_to_downtime(self, voyage, stop_time, start_time, reason, assosciated_error):
+		''' This function creates and carries out an 'INSERT' query for the 'downtime' table. It forces null values for the time fields in the case that the GUI 
 		returns blank values, this is to avoid a type mismatch with the database (Again, this is not perfect but I'll relook it at a later stage).'''
 		
+		insert_query = "INSERT INTO downtime (Voyage, StopTime, StartTime, Reason, AssosciatedError) VALUES ('{}', '{}', '{}', '{}', '{}'".format(voyage, stop_time, start_time, reason, assosciated_error)
+		print(insert_query)
 		pass
 
 	def fetch(self, fetch_query):
-    	''' This function carries out a 'SELECT' query from the MySQL database and returns the result.'''
+		''' This function carries out a 'SELECT' query from the MySQL database and returns the result.'''
 		print("Fetch " + str(fetch_query))
 
 		_ = self.cursor.execute(fetch_query)
@@ -218,7 +220,7 @@ def create_log_window(database):
 		log_event, log_values = log_window.read()
 		
 		if  log_event == '-LOG SAVE-':
-			database.save(log_values['-STATUS-'], log_values['-DESCRIPTION-'], log_values['-VOYAGE-'], log_values['-START-'], log_values['-END-'], log_values['-TYPE-'], log_values['-LOCATION-'], log_values['-SENSOR ID-'], log_values['-SENSOR TYPE-'], log_values['-MESSAGE-'])
+			database.save_to_errors(log_values['-STATUS-'], log_values['-DESCRIPTION-'], log_values['-VOYAGE-'], log_values['-START-'], log_values['-END-'], log_values['-TYPE-'], log_values['-LOCATION-'], log_values['-SENSOR ID-'], log_values['-SENSOR TYPE-'], log_values['-MESSAGE-'])
 			log_window.close()
 			break
 
@@ -280,41 +282,34 @@ def create_more_window(selected_error, database):
 
 def create_downtime_window(database):
 	# TODO RETURN Adjust this config for downtime
-	log_layout = [
-		[sg.Text("Fault description"), sg.In(size=(40, 40), key='-DESCRIPTION-')],
-		[sg.Text("Fault message"), sg.In(size=(40, 40), key='-MESSAGE-')],
-		[sg.Text("Status"), sg.InputCombo(["Unresolved", "Resolved"], key='-STATUS-')],
-		[sg.Text("Fault type"), sg.In(size=(25, 1), key='-TYPE-')],
-		[sg.Text("Location"), sg.In(size=(25, 1), key='-LOCATION-')],
-		[sg.Text("Sensor ID"), sg.In(size=(25, 1), key='-SENSOR ID-')],
-		[sg.Text("Sensor type"), sg.In(size=(25, 1), key='-SENSOR TYPE-')],
-		[sg.Text("Time of fault", tooltip="dd-mm-yy hh:mm:ss"), sg.In(size=(25, 1), key='-START-')],
-		[sg.Text("Time of solution", tooltip="dd-mm-yy hh:mm:ss"), sg.In(size=(25, 1), key='-END-')],
-		[sg.Text("Voyage"), sg.In(size=(25, 1), key='-VOYAGE-')],
+	downtime_layout = [
+		[sg.Text("Voyage"), sg.In(size=(40, 40), key='-VOYAGE-')],
+		[sg.Text("System Stop Time"), sg.In(size=(40, 40), key='-STOP-')],
+		[sg.Text("System Restart Time"), sg.In(size=(40, 40), key='-START-')],
+		[sg.Text("Reason for Downtime"), sg.In(size=(25, 1), key='-REASON-')],
+		[sg.Text("Assosciated Error"), sg.In(size=(25, 1), key='-ASSOSCIATED ERROR-')],
 		[sg.Button("Save", enable_events=True, key='-LOG SAVE-'),
 		 sg.Button("Cancel", enable_events=True, key='-LOG CANCEL-')]
 	]
 
-	log_window = sg.Window("LLMSDID - Log some downtime",
-						  layout=log_layout,
+	downtime_window = sg.Window("LLMSDID - Log some downtime",
+						  layout=downtime_layout,
 						  margins=(200, 100),
 						  grab_anywhere=True,
 						  default_button_element_size=(12, 1)
 						  )
 	while True:
-		log_event, log_values = log_window.read()
+		downtime_event, downtime_values = downtime_window.read()
 
-		if log_event == '-LOG SAVE-':
-			database.save_to_downtime(log_values['-VOYAGE-'], log_values['-START-'], log_values['-END-'], log_values['-REASON-'],
-						 log_values['-ASSOSCIATED ERROR-'], log_values['-DOWNTIME ID-'])
-			log_window.close()
+		if downtime_event == '-LOG SAVE-':
+			database.save_to_downtime(downtime_values['-VOYAGE-'], downtime_values['-STOP-'], downtime_values['-START-'], downtime_values['-REASON-'], downtime_values['-ASSOSCIATED ERROR-'])
+			downtime_window.close()
 			break
 
 		# If the user closes the window, exit this loop so that the program can close
-		if log_event == sg.WIN_CLOSED or log_event == '-LOG CANCEL-':
-			log_window.close()
+		if downtime_event == sg.WIN_CLOSED or downtime_event == '-LOG CANCEL-':
+			downtime_window.close()
 			break
-	SaveToDowntime(voyage, stopTime, startTime, reason, assosciatedError, downtimeID)
 
 # Main window layout
 main_column_1 = sg.Column([[sg.Frame('Advanced search', [[sg.Column([[sg.Text("Voyage: ", tooltip = "Let me know which voyage you'd like to see the errors for."), sg.In(size = (15, 1), pad = ((34, 0), (0, 0)), key = '-VOYAGE SEARCH-')],
@@ -410,7 +405,7 @@ if __name__ == "__main__":
 				main_window['-OUT ID-'].update("Please select a fault for us to have a look at.")
 				print("No fault selected")
 
-		if event == '-LOG DOWNTIME':
+		if event == '-LOG DOWNTIME-':
 			if(guest_user_flag):
 				print("User does not have privileges to log downtime")
 			else:
