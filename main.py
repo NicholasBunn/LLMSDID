@@ -3,6 +3,7 @@ import PySimpleGUI as sg
 import mysql.connector
 import secrets
 
+# TODO Add a view all button
 error_sel_flag = False	# Flag to check whether an error has been selected before performing logic requiring it
 guest_user_flag = False	# Flag to check whether the user is a guest, and limit which functions of the applciation (and database) they can use
 unresolved_errors = [] # MEEP, could probably do without this in the refactor
@@ -64,8 +65,12 @@ class DatabaseConnection():
 		''' This function creates and carries out an 'INSERT' query for the 'downtime' table. It forces null values for the time fields in the case that the GUI 
 		returns blank values, this is to avoid a type mismatch with the database (Again, this is not perfect but I'll relook it at a later stage).'''
 		
-		insert_query = "INSERT INTO downtime (Voyage, StopTime, StartTime, Reason, AssosciatedError) VALUES ('{}', '{}', '{}', '{}', '{}'".format(voyage, stop_time, start_time, reason, assosciated_error)
+		insert_query = "INSERT INTO downtime (Voyage, StopTime, StartTime, Reason, AssosciatedError) VALUES ('{}', '{}', '{}', '{}', '{}')".format(voyage, stop_time, start_time, reason, assosciated_error)
 		print(insert_query)
+
+		self.cursor.execute(insert_query)
+
+		self.connection.commit()
 		pass
 
 	def fetch(self, fetch_query):
@@ -285,8 +290,8 @@ def create_downtime_window(database):
 	downtime_layout = [
 		[sg.Text("Voyage"), sg.In(size=(40, 40), key='-VOYAGE-')],
 		[sg.Text("System Stop Time"), sg.In(size=(40, 40), key='-STOP-')],
-		[sg.Text("System Restart Time"), sg.In(size=(40, 40), key='-START-')],
-		[sg.Text("Reason for Downtime"), sg.In(size=(25, 1), key='-REASON-')],
+		[sg.Text("System Restart Time", tooltip = "dd-mm-yy hh:mm:ss"), sg.In(size=(40, 40), key='-START-')],
+		[sg.Text("Reason for Downtime", tooltip = "dd-mm-yy hh:mm:ss"), sg.In(size=(25, 1), key='-REASON-')],
 		[sg.Text("Assosciated Error"), sg.In(size=(25, 1), key='-ASSOSCIATED ERROR-')],
 		[sg.Button("Save", enable_events=True, key='-LOG SAVE-'),
 		 sg.Button("Cancel", enable_events=True, key='-LOG CANCEL-')]
