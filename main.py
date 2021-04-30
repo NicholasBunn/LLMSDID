@@ -4,6 +4,10 @@ import mysql.connector
 import secrets
 
 # TODO Add a view all button
+# TODO Catch errors (specifically for TimeDate mismatches)
+# TODO Add a downtime graph
+# TODO Add a system feedback window instead of putting this in the out id textbox
+
 error_sel_flag = False	# Flag to check whether an error has been selected before performing logic requiring it
 guest_user_flag = False	# Flag to check whether the user is a guest, and limit which functions of the applciation (and database) they can use
 unresolved_errors = [] # MEEP, could probably do without this in the refactor
@@ -21,6 +25,18 @@ current_error = {	# Dictionary to hold all information about the current/selecte
 	'fault_message': 'Null',
 	'log_date': 'Null'
 }	
+
+# Dictionary for search parameters. NOTE: deviation from script naming convention is due to the naming convention used in the database
+search_dict = {
+	'Voyage': '',
+	'FaultStatus': '',
+	'FaultType': '',
+	'Location': '',
+	'SensorID': '',
+	'SensorType': '',
+	'TimeOfFault': '',
+	'TimeOfSolution': ''
+}
 
 class DatabaseConnection():
 	''' This class instantiates and maintains the database connection, and encapsulates all functions that work directly with that connection.'''
@@ -99,7 +115,42 @@ class DatabaseConnection():
 
 		print("Updated")
 
-	def search(self):
+	def search(self, voyage, status, fault_type, location, sensor_id, sensor_type, start_time, end_time):
+		''' This function creates and carries out a 'SELECT' query from the MySQL database and returns the result.
+		It fills a dictionary and reduces it to only include the provided search terms in the query.'''
+
+		search_dict['Voyage'] = voyage
+		search_dict['FaultStatus'] = status
+		search_dict['FaultType'] = fault_type
+		search_dict['Location'] = location
+		search_dict['SensorID'] = sensor_id
+		search_dict['SensorType'] = sensor_type
+		search_dict['TimeOfFault'] = start_time
+		search_dict['TimeOfSolution'] = end_time
+
+		# Remove empty values so that only the required search parameters are included
+		reduced_search_dict = dict((k, v) for k, v in search_dict.items() if v) # New dictionary with all empty values removed
+		if(len(reduced_search_dict) < 2):
+			print("Please enter at least two search criteria (sorry, Nic rushed this section!)")
+			return 0
+		key_list = list(reduced_search_dict.keys())
+		value_list = list(reduced_search_dict.values())
+
+		# Remove enclosing apostrophes as is required in the MySQL syntax 
+		key_tuple = tuple(key_list)
+		seperator = ", "
+		usable_key_tuple = seperator.join(key_tuple)
+
+		search_query = "SELECT * FROM errors WHERE ({}) = {}".format(usable_key_tuple, str(tuple(value_list)))
+		print(search_query)
+
+		_ = self.cursor.execute(search_query)
+		result = self.cursor.fetchall()
+
+		return result
+	
+	def shutdown(self):
+		# Implement logic to close connection
 		pass
 	
 # Create window functions
@@ -286,8 +337,7 @@ def create_more_window(selected_error, database):
 			break
 
 def create_downtime_window(database):
-	# TODO RETURN Adjust this config for downtime
-	downtime_layout = [
+		downtime_layout = [
 		[sg.Text("Voyage"), sg.In(size=(40, 40), key='-VOYAGE-')],
 		[sg.Text("System Stop Time"), sg.In(size=(40, 40), key='-STOP-')],
 		[sg.Text("System Restart Time", tooltip = "dd-mm-yy hh:mm:ss"), sg.In(size=(40, 40), key='-START-')],
@@ -323,17 +373,18 @@ main_column_1 = sg.Column([[sg.Frame('Advanced search', [[sg.Column([[sg.Text("V
 																[sg.Text("Fault location: ", tooltip = "If you suspect that your fault might be location-specific, say so here to see previous errors that have occurred in that location."), sg.In(size = (15, 1), pad = ((0, 0), (0, 0)), key = '-LOCATION SEARCH-')],
 																[sg.Text("Sensor ID: ", tooltip = "Think that your error could be sensor-specific? Find previous issues with your exact sensor by entering it's asset number here."), sg.In(size = (15, 1), pad = ((21, 0), (0, 0)), key = '-SENSOR ID SEARCH-')],
 																[sg.Text("Sensor type: ", tooltip = "Search for previous errors that have been encountered with your specific type of sensor."), sg.In(size = (15, 1), pad = ((8, 0), (0, 0)), key = '-SENSOR TYPE SEARCH-')],
-																[sg.Text("From: ", tooltip = "Enter the start date for your search."), sg.In(size = (15, 1), pad = ((48, 0), (0, 0)), key = '-FROM SEARCH-')],
-																[sg.Text("To: ", tooltip = "Enter the end date for your search."), sg.In(size = (15, 1), pad = ((64, 0), (0, 0)), key = '-TO SEARCH-')],
+																[sg.Text("From: ", tooltip = "Enter the start date for your search."), sg.In(size = (15, 1), tooltip = "dd-mm-yy hh:mm:ss", pad = ((48, 0), (0, 0)), key = '-FROM SEARCH-')],
+																[sg.Text("To: ", tooltip = "Enter the end date for your search."), sg.In(size = (15, 1), tooltip = "dd-mm-yy hh:mm:ss", pad = ((64, 0), (0, 0)), key = '-TO SEARCH-')],
 																[sg.Button("Search errors", size = (12, 1), pad = ((93, 0), (7, 0)), enable_events=True, tooltip = "Press me if you'd like to search for specific error characteristics.",key = '-SEARCH ERROR-')]], pad = (3, 3))]])]])
 
-# TODO Add a downtime graph
+
 main_column_2 = sg.Column([[sg.Frame('Faults:', [[sg.Column([[sg.Listbox(unresolved_errors, enable_events = True, size=(20, len(unresolved_errors)), key = '-ERROR LIST-')]]),
 														sg.Column([[sg.Text("Error ID: ", size=(14,1)), sg.Text("", size=(20,1), key='-OUT ID-')],
 																   [sg.Text("Error Description: ", size=(14,15)), sg.Multiline("", size=(20,15), key='-OUT DESC-')],
 																   ]) ],
 													   [sg.Button("Update", enable_events = True, tooltip = "Press me if you'd like to update some of the information about the selected error.", key = '-UPDATE ERROR-'),
-														sg.Button("Give me more!", enable_events = True, tooltip = "Press me if you'd like to view all the information about this specific error.", key = '-SHOW ME MORE-')]], pad=(0, 0))]])
+														sg.Button("Give me more!", enable_events = True, tooltip = "Press me if you'd like to view all the information about this specific error.", key = '-SHOW ME MORE-'),
+														sg.Button("Show me unresolved errors", enable_events = True, tooltip="Press me if you'd like to see all the unresolved errors", key = '-UNRESOLVED-')]], pad=(0, 0))]])
 
 main_column_3 = sg.Column([[sg.Frame('Actions', [[sg.Column([[sg.Button("Log a new error", enable_events=True, tooltip = "Press me if you'd like to log a new error.", key = '-LOG ERROR-'),
 														  sg.Button("Log some downtime", enable_events=True, tooltip="Press me if you'd like to log system downtime as a result of a logged error.", key='-LOG DOWNTIME-')]])]])]])
@@ -354,10 +405,11 @@ if __name__ == "__main__":
 	while True:
 		event, values = main_window.read()
 
-		update_query = "SELECT FaultID, FaultDescription FROM errors WHERE FaultStatus = 'Unresolved'"
-		unresolved_errors = db_object.fetch(update_query)
-		main_window['-ERROR LIST-'].update(unresolved_errors)
-		main_window.refresh() # ToDo this still isn't working
+		if event == '-UNRESOLVED-':
+			update_query = "SELECT FaultID, FaultDescription FROM errors WHERE FaultStatus = 'Unresolved'"
+			unresolved_errors = db_object.fetch(update_query)
+			main_window['-ERROR LIST-'].update(unresolved_errors)
+			main_window.refresh()
 		
 		if values['-ERROR LIST-']:
 			selected_error = values['-ERROR LIST-'][0]
@@ -388,7 +440,6 @@ if __name__ == "__main__":
 				if error_sel_flag:
 					create_update_window(current_error, db_object) # MEEP: point to db_object?
 				else:
-					# ToDo: Add a system feedback window instead of putting this in the out id textbox
 					main_window['-OUT ID-'].update("Please select a fault for us to update.")
 					print("No fault selected")
 		
@@ -400,8 +451,9 @@ if __name__ == "__main__":
 				# TODO Set current issue as logged issue if it is unresolved
 
 		if event == '-SEARCH ERROR-':
-			print("Functionality is still being implemented")
-			# Could do this with a list/tuple
+			unresolved_errors = db_object.search(values['-VOYAGE SEARCH-'], values['-STATUS SEARCH-'], values['-TYPE SEARCH-'], values['-LOCATION SEARCH-'], values['-SENSOR ID SEARCH-'], values['-SENSOR TYPE SEARCH-'], values['-FROM SEARCH-'], values['-TO SEARCH-'])
+			main_window['-ERROR LIST-'].update(unresolved_errors)
+			main_window.refresh()
 
 		if event == '-SHOW ME MORE-':
 			if error_sel_flag:
